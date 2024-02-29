@@ -1,0 +1,129 @@
+---
+title: "Louisiana Mortality Data Description"
+author: "Grace Arkfeld"
+date: "2024-02-20"
+output: pdf_document
+---
+```{r}
+# Set the CRAN mirror
+chooseCRANmirror(ind=1)  # Choose the mirror closest to your location
+
+# Install and load necessary packages
+install.packages("readr")
+library(readr)
+
+# Read the CSV file from Dropbox using the correct link structure
+la_mort <- read_csv("https://www.dropbox.com/s/fzsnhfd3lq80v2o3sag6c/la_mort.csv?dl=1")
+
+# Check the first few rows of the dataset to ensure it was loaded correctly
+head(la_mort)
+```
+```{r}
+library(dplyr)
+```
+```{r}
+library(readr)
+```
+```{r}
+la_mortality <- read_csv("https://www.dropbox.com/s/fzsnhfd3lq80v2o3sag6c/la_mort.csv?dl=1/LA_Mortality_File.csv")
+```
+```{r}
+# Assuming you've already loaded the dataset into R and named it la_mort
+
+# Get the list of variable names
+variable_names <- names(la_mort)
+```
+## Data Elements Description
+
+1. *restatus*  
+   - Description: Resident Status
+     - United States Occurrence:
+         - State and county of Occurrence and Residence are the same.
+         - State of Occurrence and Residence are the same, but County is different.
+         - State of Occurrence and Residence are different, but both are in the U.S.
+         - State of Occurrence is one of the 50 States or D.C., but Place of Residence is outside the U.S.
+     - Puerto Rico Occurrence:
+         - Territory and County-equivalent of Occurrence and Residence are the same.
+         - Territory of Occurrence and Residence are the same, but County-equivalent is different.
+         - Territory of occurrence and residence are different, but both are a Territory.
+         - Occurred in Puerto Rico to a resident of any other place.
+     - Virgin Islands Occurrence:
+         - Territory and County-equivalent of Occurrence and Residence are the same.
+         - Territory of Occurrence and Residence are the same, but County-equivalent is different.
+         - Territory of occurrence and residence are different, but both are a Territory.
+         - Occurred in Virgin Islands to a resident of any other place.
+
+2. *education*  
+   - Description: Education Level
+     - 2019 Mortality Multiple Cause-of-Death Public Use Record Tape Location Size Field Item and Code Outline:
+         - 2 Education (1989 revision):
+             - 00: No formal education
+             - 01-08: Years of elementary school
+             - 09: 1 year of high school
+             - 10: 2 years of high school
+             - 11: 3 years of high school
+             - 12: 4 years of high school
+             - 13: 1 year of college
+             - 14: 2 years of college
+             - 15: 3 years of college
+             - 16: 4 years of college
+             - 17: 5 or more years of college
+             - 99: Not stated
+         - 1 Education (2003 revision):
+             - Field is blank for registration areas that are using the 1989 revision format of the item.
+             - 1: 8th grade or less
+             - 2: 9 -12th grade, no diploma
+             - 3: high school graduate or GED completed
+             - 4: some college credit, but no degree
+             - 5: Associate degree
+             - 6: Bachelor’s degree
+             - 7: Master’s degree
+             - 8: Doctorate or professional degree
+             - 9: Unknown
+     - Education reporting flag:
+         - 0: 1989 revision of education item on certificate
+         - 1: 2003 revision of education item on certificate
+         - 2: No education item on certificate
+3. *month_of_death*  
+   - Description: Month of Death
+     - 2019 Mortality Multiple Cause-of-Death Public Use Record Tape Location Size Field Item and Code Outline:
+         - 1: January
+         - 2: February
+         - 3: March
+         - 4: April
+         - 5: May
+         - 6: June
+         - 7: July
+         - 8: August
+         - 9: September
+         - 10: October
+         - 11: November
+         - 12: December
+
+4. *sex*  
+   - Description: Sex
+     - 69: M (Male)
+     - 70: F (Female)
+
+5. *age*  
+   - Description: Age at Death
+     - 2019 Mortality Multiple Cause-of-Death Public Use Record Tape Location Size Field Item and Code Outline:
+         - 70-73: Detail Age
+             - Four positions are used to code detail age.
+             - Location 70 identifies age in years, months, days, etc.
+             - Locations 71-73 are the number of years, months, days, etc.
+         - 74: Age Substitution Flag
+             - If reported age is unknown but a valid age is calculated using dates of birth and death, the calculated age is substituted for the unknown reported age.
+             - 0: Calculated age is not substituted for reported age
+             - 1: Calculated age is substituted for reported age
+         - 75-76: Age Recode 52
+             - Codes representing different age ranges from under 1 hour to 125 years and over, with categories such as "1 year", "2 years", "3 years", "4 years", "5 - 9 years", "10 - 14 years", etc.
+         - 77-78: Age Recode 27
+             - Codes representing different age ranges from under 1 month to "Age not stated", with categories such as "Under 1 month", "1 month - 11 months", "1 year", "2 years", "3 years", "4 years", "5 - 9 years", etc.
+         - 79-80: Age Recode 12
+             - Codes representing different age ranges from under 1 year to "Age not stated", with categories such as "Under 1 year", "1 - 4 years", "5 - 14 years", "15 - 24 years", "25 - 34 years", "35 - 44 years", "45 - 54 years", etc.
+         - 81-82: Infant Age Recode
+             - Codes representing different age ranges for infants, from under 1 hour to "Age 1 year and over or not stated", with categories such as "Under 1 hour", "1 - 23 hours", "1 day", "2 days", "3 days", "4 days", "5 days", "6 days", "7-13 days", etc.
+
+
+
