@@ -48,10 +48,6 @@ la_pop <-
   read_csv("https://www.dropbox.com/scl/fi/650k1obpczky6bwa19ex6/la_county_pop.csv?rlkey=0aokd9m76q7mxwus97uslsx7g&dl=1")
 ```
 ```{r}
-la_joined <- parish_count %>%
-  inner_join(la_pop, by = c("county", "year"))
-```
-```{r}
 # Check column names in both datasets
 colnames(parish_count)
 colnames(la_pop)
