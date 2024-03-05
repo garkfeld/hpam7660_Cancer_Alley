@@ -1,0 +1,140 @@
+---
+title: "HPAM 7660 Data Assignment 4"
+author: "Grace Arkfeld"
+date: "2024-03-05"
+output: pdf_document
+---
+```{r}
+library(readr)
+la_mort <- 
+  read_csv("https://www.dropbox.com/scl/fi/fzsnhfd3lq80v2o3sag6c/la_mort.csv?rlkey=h1vyjm2b8ppgejgsg3e8evm7i&dl=1")
+la_mort$cancer_parish <- ifelse(la_mort$cntyrsd %in% c(5, 33, 47, 51, 71, 89, 93, 95, 121), 1, 0)
+la_mort$cancer39 <- ifelse(la_mort$ucr39 %in% c(5:15), 1, 0)
+library(dplyr)
+la_mort_age <- la_mort %>%
+  filter(age != 9999)
+la_mort_age$age <- ifelse(la_mort_age$age < 2000, la_mort_age$age - 1000, 0)
+age_breaks <- c(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, Inf)
+age_labels <- c("0_4", "5_9", "10_14", "15_19", "20_24", "25_29", "30_34", "35_39", 
+                "40_44", "45_49", "50_54", "55_59", "60_64", "65_69", "70_74", 
+                "75_79", "80_84", "85+")
+la_mort_age$agegrp <- as.character(cut(la_mort_age$age, breaks = age_breaks, labels = age_labels, right = FALSE))
+parish_count <- la_mort %>%
+  group_by(cntyrsd, cancer_parish, year) %>%
+  summarize(cancer39 = sum(cancer39, na.rm = TRUE))
+parish_count_age <- la_mort_age %>%
+  group_by(cntyrsd, cancer_parish, agegrp, year) %>%
+  summarize(cancer39 = sum(cancer39, na.rm = TRUE))
+la_pop <- 
+  read_csv("https://www.dropbox.com/scl/fi/650k1obpczky6bwa19ex6/la_county_pop.csv?rlkey=0aokd9m76q7mxwus97uslsx7g&dl=1")
+# Check column names in both datasets
+colnames(parish_count)
+colnames(la_pop)
+library(dplyr)
+# Correct join operation without renaming columns
+la_joined <- parish_count %>%
+  inner_join(la_pop, by = c("cancer_parish" = "county", "year"))
+la_joined <- parish_count_age %>%
+  inner_join(la_pop, by = c("cntyrsd" = "county", "year", "agegrp"))
+stnrd_pop <- 
+  read_csv("https://www.dropbox.com/scl/fi/xzd2o5lza237so6vamqwb/stnrd_pop.csv?rlkey=zp90au2tuq6eptvi1yiyjfzua&dl=1")
+la_joined_stnrd <- la_joined %>%
+  inner_join(stnrd_pop, by = "agegrp")
+la_joined_stnrd$stnrd_pop_weight <- (la_joined_stnrd$stnrd_pop) / (sum(stnrd_pop$stnrd_pop))
+la_joined_stnrd$cancer_rate_adj <- ((la_joined_stnrd$cancer39) / (la_joined_stnrd$tot_pop / 100000)) * la_joined_stnrd$stnrd_pop_weight
+parish_rates <- la_joined_stnrd %>%
+  group_by(cntyrsd, cancer_parish, year) %>%
+  summarize(cancer_rate_adj = sum(cancer_rate_adj, na.rm = TRUE), cancer39 = sum(cancer39), tot_pop = 
+              sum(tot_pop))
+parish_rates$cancer_rate_crude <- (parish_rates$cancer39) / (parish_rates$tot_pop / 100000)
+la_joined_all <- parish_count %>%
+  inner_join(la_pop, by = c("cancer_parish" = "county", "year"))
+# Assuming la_joined_all exists and contains the correct data
+parish_cancer_2019 <- subset(la_joined_all, year == 2019)
+library(knitr)
+# Adjust the column names to those that exist in your dataframe
+kable(parish_cancer_2019[, c("cancer_parish", "cancer39")])
+library(knitr)
+# Adjusting the code to use existing columns
+kable(parish_cancer_2019[, c("cancer_parish", "cancer39")])
+parish_cancer_2019 <- subset(parish_rates, year == 2019)
+kable(parish_cancer_2019[, c("cntyrsd", "cancer_rate_crude", "cancer_rate_adj")])
+parish_rates$pop_weight <- (parish_rates$cancer_rate_adj) * (parish_rates$tot_pop)
+cancer_alley_rates <- parish_rates %>%
+  group_by(cancer_parish, year) %>%
+  summarize(cancer_rate_adj_wt = sum(pop_weight) / sum(tot_pop))
+kable(cancer_alley_rates)
+cancer_alley <- 
+  subset(cancer_alley_rates, cancer_parish == 1, select = c(cancer_rate_adj_wt, year)) %>%
+  rename(cancer_alley_rate = cancer_rate_adj_wt)
+no_cancer_alley <- 
+  subset(cancer_alley_rates, cancer_parish == 0, select = c(cancer_rate_adj_wt, year)) %>%
+  rename(no_cancer_alley_rate = cancer_rate_adj_wt)
+cancer_alley_table <- cancer_alley %>%
+  inner_join(no_cancer_alley, by = "year")
+cancer_alley_table <- cancer_alley_table[,c("year", "cancer_alley_rate", "no_cancer_alley_rate")]
+kable(cancer_alley_table)
+```
+
+```{r}
+library(ggplot2)
+parish_cancer_2019 <- subset(parish_rates, year == 2019)
+ggplot(parish_cancer_2019, aes(x = cntyrsd, y = cancer_rate_adj)) +
+  geom_point() +
+  labs(title = "Cancer Mortality Rates in 2019 by County",
+       x = "County FIPS Code",
+       y = "Cancer Mortality Rate (per 100,000)")
+```
+```{r}
+cancer_alley_rates$cancer_parish <- factor(cancer_alley_rates$cancer_parish)
+ggplot(cancer_alley_rates, aes(x = year, y = cancer_rate_adj_wt, linetype = cancer_parish)) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, 300)) +
+  scale_x_continuous(breaks = seq(2005, 2019, by = 1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_linetype_discrete(name = NULL, labels = c("Rest of Louisiana", "Cancer Alley"), guide = guide_legend(reverse = TRUE)) +
+  labs(title = "Cancer Mortality Rate Comparison",
+       y = "Cancer Deaths per 100,000 Residents",
+       x = NULL)
+```
+
+```{r}
+cancer_alley_avg <- parish_rates %>%
+  filter(cancer_parish == 1) %>%
+  group_by(cntyrsd) %>%
+  summarize(avg_cancer_rate = mean(cancer_rate_adj))
+
+cancer_alley_avg$cntyrsd <- factor(cancer_alley_avg$cntyrsd)
+
+ggplot(cancer_alley_avg, aes(x = cntyrsd, y = avg_cancer_rate)) +
+  geom_bar(stat = "identity") +
+  scale_y_continuous(limits = c(0, 300)) +
+  labs(title = "Average Cancer Alley Mortality Rates by County, 2005-2019",
+       y = "Cancer Deaths per 100,000 Residents",
+       x = "County") +
+  scale_x_discrete(labels = c("5" = "Ascension",
+                              "33" = "East Baton Rouge",
+                              "47" = "Iberville",
+                              "51" = "Jefferson",
+                              "71" = "Orleans",
+                              "89" = "St. Charles",
+                              "93" = "St. James",
+                              "95" = "St. John the Baptist",
+                              "121" = "West Baton Rouge")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Clean up the environment before saving the image
+rm(list = setdiff(ls(), c("parish_rates", "cancer_alley_rates")))
+save.image(file = "~/data_4.RData")
+```
+
+```{r}
+# Load the necessary data frames into the new environment
+load("~/data_4.RData")
+library(dplyr)
+library(knitr)
+library(ggplot2)
+```
+
