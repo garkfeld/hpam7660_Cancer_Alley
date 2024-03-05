@@ -1,0 +1,179 @@
+---
+title: "Summarizing Data Tutorial"
+author: "Grace Arkfeld"
+date: "2024-03-05"
+output: pdf_document
+---
+```{r}
+rm(list = ls())
+```
+```{r}
+# Load the tidyverse package
+library(tidyverse)
+
+# Load the knitr package
+library(knitr)
+```
+
+```{r}
+la_mort <- 
+  read_csv("https://www.dropbox.com/scl/fi/fzsnhfd3lq80v2o3sag6c/la_mort.csv?rlkey=h1vyjm2b8ppgejgsg3e8evm7i&dl=1")
+
+la_pop <- 
+  read_csv("https://www.dropbox.com/scl/fi/650k1obpczky6bwa19ex6/la_county_pop.csv?rlkey=0aokd9m76q7mxwus97uslsx7g&dl=1")
+
+stnrd_pop <- 
+  read_csv("https://www.dropbox.com/scl/fi/xzd2o5lza237so6vamqwb/stnrd_pop.csv?rlkey=zp90au2tuq6eptvi1yiyjfzua&dl=1")
+```
+```{r}
+# Step 4: Define Cancer Alley Parishes
+la_mort$cancer_alley_parish <- ifelse(la_mort$cntyrsd %in% c(5, 47, 89, 93, 95, 121), 1, 0)
+```
+
+```{r}
+# Step 5: Define Cancer Deaths by Cancer Site
+la_mort$stomach_cancer <- ifelse(la_mort$ucr39 == 5, 1, 0)
+la_mort$colon_cancer <- ifelse(la_mort$ucr39 == 6, 1, 0)
+la_mort$pancreas_cancer <- ifelse(la_mort$ucr39 == 7, 1, 0)
+la_mort$lung_cancer <- ifelse(la_mort$ucr39 == 8, 1, 0)
+la_mort$breast_cancer <- ifelse(la_mort$ucr39 == 9, 1, 0)
+la_mort$cervix_cancer <- ifelse(la_mort$ucr39 == 10, 1, 0)
+la_mort$prostate_cancer <- ifelse(la_mort$ucr39 == 11, 1, 0)
+la_mort$bladder_cancer <- ifelse(la_mort$ucr39 == 12, 1, 0)
+la_mort$lymphoma_cancer <- ifelse(la_mort$ucr39 == 13, 1, 0)
+la_mort$leukemia_cancer <- ifelse(la_mort$ucr39 == 14, 1, 0)
+la_mort$other_site_cancer <- ifelse(la_mort$ucr39 == 15, 1, 0)
+la_mort$total_cancer <- ifelse(la_mort$ucr39 %in% 5:15, 1, 0)
+```
+
+```{r}
+# Step 6: Adjust Age Groupings
+la_mort <- la_mort %>% filter(age != 9999)
+age_breaks <- c(0, 1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105)
+age_labels <- c("0", "1-4", "5-9", "10-14", "15-19", "20-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64", "65-69", "70-74", "75-79", "80-84", "85-89", "90-94", "95-99", "100+")
+la_mort$agegrp <- cut(la_mort$age, breaks = age_breaks, labels = age_labels, right = FALSE)
+```
+
+```{r}
+# Step 7: Define Race in the Mortality File
+la_mort <- la_mort %>% filter(racer5 %in% c(1, 2))
+la_mort$black <- ifelse(la_mort$racer5 == 2, 1, 0)
+```
+
+```{r}
+# Step 8: Create Parish Counts of Cancer Deaths by Cancer Site and by Race
+parish_counts <- la_mort %>%
+  group_by(cntyrsd, black, year, agegrp) %>%
+  summarize(
+    stomach_cancer_deaths = sum(stomach_cancer, na.rm = TRUE),
+    colon_cancer_deaths = sum(colon_cancer, na.rm = TRUE),
+    pancreas_cancer_deaths = sum(pancreas_cancer, na.rm = TRUE),
+    lung_cancer_deaths = sum(lung_cancer, na.rm = TRUE),
+    breast_cancer_deaths = sum(breast_cancer, na.rm = TRUE),
+    cervix_cancer_deaths = sum(cervix_cancer, na.rm = TRUE),
+    prostate_cancer_deaths = sum(prostate_cancer, na.rm = TRUE),
+    bladder_cancer_deaths = sum(bladder_cancer, na.rm = TRUE),
+    lymphoma_cancer_deaths = sum(lymphoma_cancer, na.rm = TRUE),
+    leukemia_cancer_deaths = sum(leukemia_cancer, na.rm = TRUE),
+    other_site_cancer_deaths = sum(other_site_cancer, na.rm = TRUE),
+    total_cancer_deaths = sum(total_cancer, na.rm = TRUE)
+  )
+```
+
+```{r}
+# Step 9: Define Race in the Population File
+la_pop <- la_pop %>%
+  mutate(
+    black_pop = rowSums(select(., c("ba_male", "ba_female"))),
+    white_pop = rowSums(select(., c("wa_male", "wa_female"))),
+  )
+la_pop_black <- select(la_pop, county, year, agegrp, black_pop)
+la_pop_white <- select(la_pop, county, year, agegrp, white_pop)
+```
+
+```{r}
+# Step 10: Join the Mortality and Population Data Frames
+la_joined_black <- parish_counts %>%
+  filter(black == 1) %>%
+  inner_join(la_pop_black, by = c("cntyrsd" = "county", "year", "agegrp")) %>%
+  rename(tot_pop = black_pop)
+
+la_joined_white <- parish_counts %>%
+  filter(black == 0) %>%
+  inner_join(la_pop_white, by = c("cntyrsd" = "county", "year", "agegrp")) %>%
+  rename(tot_pop = white_pop)
+
+la_bind <- rbind(la_joined_black, la_joined_white)
+```
+
+```{r}
+# Step 11: Join the Mortality/Population Data to the Standard Population Data
+# Assuming stnrd_pop is the standard population data frame
+la_bind <- la_bind %>%
+  inner_join(stnrd_pop, by = "agegrp")
+```
+
+```{r}
+# Step 12: Calculate Population Weights
+la_bind$stnrd_pop_weight <- (la_bind$stnrd_pop) / (sum(stnrd_pop$stnrd_pop))
+```
+
+```{r}
+# Step 13: Calculate Cancer Mortality Rates by Cancer Site and Race
+cancer_sites <- c("stomach", "colon", "pancreas", "lung", "breast", "cervix", "prostate", "bladder", "lymphoma", "leukemia", "other_site", "total")
+for (site in cancer_sites) {
+  rate_col <- paste(site, "cancer_rate_adj", sep = "_")
+  death_col <- paste(site, "cancer_deaths", sep = "_")
+  la_bind[[rate_col]] <- ((la_bind[[death_col]]) / (la_bind$tot_pop / 100000)) * la_bind$stnrd_pop_weight
+}
+```
+```{r}
+# Replace "inf" values with NA
+for (col in names(la_bind)) {
+  la_bind[[col]][is.infinite(la_bind[[col]])] <- NA
+}
+```
+
+```{r}
+# Step 14: Aggregate to the Parish-Year Level
+parish_rates <- la_bind %>%
+  group_by(cntyrsd, black, year) %>%
+  summarize(across(ends_with("cancer_rate_adj"), sum, na.rm = TRUE), tot_pop = sum(tot_pop))
+```
+
+```{r}
+# Step 15: Weight by Parish Population
+for (site in cancer_sites) {
+  rate_col <- paste(site, "cancer_rate_adj", sep = "_")
+  weight_col <- paste(site, "pop_weight", sep = "_")
+  parish_rates[[weight_col]] <- parish_rates[[rate_col]] * parish_rates$tot_pop
+}
+```
+```{r}
+# Step 15: Weight by Parish Population
+for (site in cancer_sites) {
+  rate_col <- paste(site, "cancer_rate_adj", sep = "_")
+  weight_col <- paste(site, "pop_weight", sep = "_")
+  parish_rates[[weight_col]] <- parish_rates[[rate_col]] * parish_rates$tot_pop
+}
+```
+
+```{r}
+# Create a data frame with cancer_alley_parish information
+cancer_alley_info <- la_mort %>%
+  select(cntyrsd, cancer_alley_parish) %>%
+  distinct()
+
+# Add cancer_alley_parish information to parish_rates
+parish_rates <- parish_rates %>%
+  left_join(cancer_alley_info, by = "cntyrsd")
+```
+
+```{r}
+# Step 16: Aggregate to Cancer Alley and non-Cancer Alley Parishes
+cancer_alley_rates <- parish_rates %>%
+  group_by(cancer_alley_parish, black, year) %>%
+  summarize(across(ends_with("pop_weight"), sum), tot_pop = sum(tot_pop)) %>%
+  mutate(across(ends_with("pop_weight"), ~ .x / tot_pop))
+```
+
